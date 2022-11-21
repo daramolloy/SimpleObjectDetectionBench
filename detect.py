@@ -12,7 +12,7 @@ import glob
 import json
 
 class Inference:
-    def __init__(self,imgFiles,outDir,labelDict,confFilter,minIoU):
+    def __init__(self,imgFiles,outDir,labelDict,confFilter,minIoU,imageSize=None):
         self.imgFiles = imgFiles
         self.outDir = outDir
         self.labelFilter = labelDict.keys()
@@ -21,25 +21,37 @@ class Inference:
         self.minIoU = minIoU
         self.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
         self.colours = np.random.uniform(0, 255, size=(len(self.labelFilter), 3))
+        self.orig_imageSize = ()
+        self.infer_imageSize = imageSize
 
-    def batch_run(self,saveJSON=True):
         # Populate model list
-        models = []
-        models.append(["yolov5n",torch.hub.load('ultralytics/yolov5', 'yolov5n', pretrained=True)])
-        models.append(["yolov5s",torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)])
-        models.append(["yolov5m",torch.hub.load('ultralytics/yolov5', 'yolov5m', pretrained=True)])
-        models.append(["yolov5l",torch.hub.load('ultralytics/yolov5', 'yolov5l', pretrained=True)])
-        models.append(["yolov5x",torch.hub.load('ultralytics/yolov5', 'yolov5x', pretrained=True)])
-        # models.append(["fasterrcnn_mobilenet_v3_large_fpn",detection.fasterrcnn_mobilenet_v3_large_fpn(pretrained=True)])
-        # models.append(["fasterrcnn_mobilenet_v3_large_320_fpn",detection.fasterrcnn_mobilenet_v3_large_320_fpn(pretrained=True)])
-        # models.append(["fasterrcnn_resnet50_fpn",detection.fasterrcnn_resnet50_fpn(pretrained=True)])
-        # models.append(["retinanet_resnet50_fpn",detection.retinanet_resnet50_fpn(pretrained=True)])
-        # models.append(["fcos_resnet50_fpn",detection.fcos_resnet50_fpn(pretrained=True)])
-        # models.append(["ssd300_vgg16",detection.ssd300_vgg16(pretrained=True)])
-        # models.append(["ssdlite320_mobilenet_v3_large",detection.ssdlite320_mobilenet_v3_large(pretrained=True)])
+        self.models = []
+        self.models.append(["yolov5n",torch.hub.load('ultralytics/yolov5', 'yolov5n', pretrained=True)])
+        self.models.append(["yolov5s",torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)])
+        self.models.append(["yolov5m",torch.hub.load('ultralytics/yolov5', 'yolov5m', pretrained=True)])
+        self.models.append(["yolov5l",torch.hub.load('ultralytics/yolov5', 'yolov5l', pretrained=True)])
+        self.models.append(["yolov5x",torch.hub.load('ultralytics/yolov5', 'yolov5x', pretrained=True)])
+        self.models.append(["fasterrcnn_mobilenet_v3_large_fpn",detection.fasterrcnn_mobilenet_v3_large_fpn(pretrained=True)])
+        # self.models.append(["fasterrcnn_mobilenet_v3_large_320_fpn",detection.fasterrcnn_mobilenet_v3_large_320_fpn(pretrained=True)])
+        self.models.append(["fasterrcnn_resnet50_fpn",detection.fasterrcnn_resnet50_fpn(pretrained=True)])
+        self.models.append(["retinanet_resnet50_fpn",detection.retinanet_resnet50_fpn(pretrained=True)])
+        self.models.append(["fcos_resnet50_fpn",detection.fcos_resnet50_fpn(pretrained=True)])
+        self.models.append(["ssd300_vgg16",detection.ssd300_vgg16(pretrained=True)])
+        # self.models.append(["ssdlite320_mobilenet_v3_large",detection.ssdlite320_mobilenet_v3_large(pretrained=True)])
 
+    def batch_run(self, modelList=None, saveJSON=True,visualise=False):
+        # Initialise batch prediction dictionary
+        batch_predDict = {}
+        ## If models are filtered
+        if modelList is not None:
+            tempModelList = []
+            for modelName in modelList:
+                for model in self.models:
+                    if modelName.lower() in model[0].lower():
+                        tempModelList.append(model)
+            self.models = tempModelList
         ## Iterate through each model
-        for modelInfo in models:
+        for modelInfo in self.models:
             ## Initialise prediction dictionary
             predDict = []
 
@@ -51,23 +63,25 @@ class Inference:
                 model.conf = self.confFilter
                 model.iou = self.minIoU/100
                 model.classes = [0,1,2]
+                ## Initialise COCO Image ID index
+                imageID = 0
                 for imgFile in self.imgFiles:
-                    ## Initialise COCO Image ID index
-                    imageID = 0
                     ## Reading in Image
                     image = self.loadImage(imgFile, False)
                     ## Inference & NMS
                     results = model(image)
                     ## Parse Results & Correct Datatypes
+                    xRatio = self.infer_imageSize[0] / self.orig_imageSize[0]
+                    yRatio = self.infer_imageSize[1] / self.orig_imageSize[1]
                     imagePred = results.pandas().xywh[0].values
-                    imagePred[:,0] =  np.clip(imagePred[:,0].astype('int32') - ( imagePred[:,2].astype('int32')/2),0,image.shape[1]).astype('int32')
-                    imagePred[:,1] =  np.clip(imagePred[:,1].astype('int32') - ( imagePred[:,3].astype('int32')/2),0,image.shape[0]).astype('int32')
-                    imagePred[:,2] =  imagePred[:,2].astype('int32')
-                    imagePred[:,3] =  imagePred[:,3].astype('int32')
+                    imagePred[:,0] =  (np.clip(imagePred[:,0].astype('int32') - ( imagePred[:,2].astype('int32')/2),0,image.shape[1])/xRatio).astype('int32')
+                    imagePred[:,1] =  (np.clip(imagePred[:,1].astype('int32') - ( imagePred[:,3].astype('int32')/2),0,image.shape[0])/yRatio).astype('int32')
+                    imagePred[:,2] =  (imagePred[:,2]/xRatio).astype('int32')
+                    imagePred[:,3] =  (imagePred[:,3]/yRatio).astype('int32')
                     imagePred[:,4] =  imagePred[:,4].astype('float64')
                     imagePred[:,5] =  imagePred[:,5].astype('int32') + 1
                     ## Visualise results
-                    self.visualiseTorchResults(imagePred, imgFile)
+                    if visualise: self.visualiseTorchResults(imagePred, imgFile)
                     for pred in imagePred:
                         predDict.append({
                             'image_id': int(imageID),
@@ -76,21 +90,16 @@ class Inference:
                             'score': float(pred[4])
                         })
                     imageID += 1
-                if saveJSON:
-                    jsonPath = f"{outDir}{modelInfo[0]}-pred.json"
-                    with open(jsonPath, 'w') as f:
-                        json.dump(predDict, f)
-
 
             else:
                 ## Load in model
                 model = modelInfo[1].to(self.device)
                 model.eval()
 
+                ## Initialise COCO Image ID index
+                imageID = 0
                 ## For each image
                 for imgFile in self.imgFiles:
-                    ## Initialise COCO Image ID index
-                    imageID = 0
                     ## Reading in Image
                     image = self.loadImage(imgFile, True)
                     image = image.to(self.device)
@@ -101,7 +110,8 @@ class Inference:
                     ## Tensor Res to X,Y,W,H,Label,Score
                     imagePred = self.parseResults(indexes,results)
                     ## Visualising Results
-                    self.visualiseTorchResults(imagePred,imgFile)
+                    if visualise: self.visualiseTorchResults(imagePred,imgFile)
+                    ## Add pred information to predDict in the COCO style
                     for pred in imagePred:
                         predDict.append({
                             'image_id': int(imageID),
@@ -109,14 +119,22 @@ class Inference:
                             'bbox': [pred[0],pred[1],pred[2],pred[3]],
                             'score': float(pred[4])
                         })
+                    ## Iterate image ID for each image
                     imageID+=1
-                if saveJSON:
-                    jsonPath = f"{outDir}{modelInfo[0]}-pred.json"
-                    with open(jsonPath, 'w') as f:
-                        json.dump(predDict, f)
+            ## Save predictions to COCO JSON file per model if desired
+            if saveJSON:
+                jsonPath = f"{outDir}{modelInfo[0]}-pred.json"
+                with open(jsonPath, 'w') as f:
+                    json.dump(predDict, f)
+            ## Save predictions to batch dictionary
+            batch_predDict[modelInfo[0]] = predDict
+        return batch_predDict
+
 
     def loadImage(self,imageFile, toTensor):
         image = cv2.imread(imageFile)
+        self.orig_imageSize = (image.shape[1],image.shape[0])
+        if self.infer_imageSize is not None: image = cv2.resize(image,self.infer_imageSize,interpolation=cv2.INTER_AREA)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         if toTensor:
             image = image.transpose((2, 0, 1))
@@ -128,14 +146,28 @@ class Inference:
     def parseResults(self,indexes,results):
         imagePred = []
         for i in indexes:
+            ## Pull confidence and label from results
             conf = results["scores"][i].item()
             label = results['labels'][i].item()
+            ## If the label is within our label filter
             if label in self.labelFilter:
+                ## If confidence is above our threshold
                 if conf > self.confFilter:
+                    ## Pull box from results
                     box = results["boxes"][i].detach().cpu().numpy()
-                    (x1, y1, x2, y2) = box.astype("int")
+                    ## Split box into vertices
+                    (x1, y1, x2, y2) = box
+                    ## Scale box size back to original as the annotations are in the original size
+                    xRatio = self.orig_imageSize[0]/self.infer_imageSize[0]
+                    yRatio = self.orig_imageSize[1]/self.infer_imageSize[1]
+                    x1 = x1*xRatio
+                    x2 = x2*xRatio
+                    y1 = y1*yRatio
+                    y2 = y2*yRatio
+                    ## Calculate width and height
                     width = x2 - x1
                     height = y2 - y1
+                    ## Append prediction entry with correct format
                     imagePred.append([int(x1), int(y1), int(width), int(height),conf,label])
         return imagePred
 
@@ -152,7 +184,7 @@ class Inference:
         cv2.waitKey(100)
 
 # imgFiles = glob.glob("G:/OOF_Paper/Data/CookeTripletRGB_25mm/plus1p5waves/1000/*.png")
-imgFiles = glob.glob("G:/OOF_Paper/Data/CookeTripletRGB_25mm/original/1000/*.png")
+imgFiles = glob.glob("G:/OOF_Paper/Data/CookeTripletRGB_25mm/original/10000/*.png")
 outDir = "G:/OOF_Paper/SDK/Inference/"
 labelDict = {
     0: "Background",
@@ -160,6 +192,7 @@ labelDict = {
     2: "Bicycle",
     3: "Car"
 }
-inference = Inference(imgFiles,outDir,labelDict,0.001,30)
-inference.batch_run(saveJSON = True)
+inference = Inference(imgFiles,outDir,labelDict,0.001,30,imageSize = (640,338))
+predictions = inference.batch_run(modelList=None,saveJSON=True, visualise=True)
+print("Done")
 
