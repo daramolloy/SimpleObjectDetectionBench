@@ -1,18 +1,15 @@
+import os.path
+
 import torch
-from pycocotools.coco import COCO
-from pycocotools.cocoeval import COCOeval
 from torchvision.models import detection
 from torchvision.ops import nms
 import numpy as np
-import argparse
-import pickle
 import cv2
-import yaml
-import glob
 import json
+from tqdm import tqdm
 
 class Inference:
-    def __init__(self,imgFiles,outDir,labelDict,confFilter,minIoU,imageSize=None):
+    def __init__(self,imgFiles,outDir,labelDict,confFilter,minIoU,imageSize=None,annoPath=None):
         self.imgFiles = imgFiles
         self.outDir = outDir
         self.labelFilter = labelDict.keys()
@@ -23,6 +20,10 @@ class Inference:
         self.colours = np.random.uniform(0, 255, size=(len(self.labelFilter), 3))
         self.orig_imageSize = ()
         self.infer_imageSize = imageSize
+        self.anno = None
+        if annoPath is not None:
+            with open(annoPath,"r") as f:
+                self.anno = json.load(f)
 
         # Populate model list
         self.models = []
@@ -51,7 +52,7 @@ class Inference:
                         tempModelList.append(model)
             self.models = tempModelList
         ## Iterate through each model
-        for modelInfo in self.models:
+        for modelInfo in tqdm(self.models):
             ## Initialise prediction dictionary
             predDict = []
 
@@ -82,9 +83,13 @@ class Inference:
                     imagePred[:,5] =  imagePred[:,5].astype('int32') + 1
                     ## Visualise results
                     if visualise: self.visualiseTorchResults(imagePred, imgFile)
+                    if self.anno is None:
+                        currImageID = imageID
+                    else:
+                        currImageID = self.pullImageID(imgFile)
                     for pred in imagePred:
                         predDict.append({
-                            'image_id': int(imageID),
+                            'image_id': int(currImageID),
                             'category_id': int(pred[5]),
                             'bbox': [pred[0],pred[1],pred[2],pred[3]],
                             'score': float(pred[4])
@@ -111,10 +116,14 @@ class Inference:
                     imagePred = self.parseResults(indexes,results)
                     ## Visualising Results
                     if visualise: self.visualiseTorchResults(imagePred,imgFile)
+                    if self.anno is None:
+                        currImageID = imageID
+                    else:
+                        currImageID = self.pullImageID(imgFile)
                     ## Add pred information to predDict in the COCO style
                     for pred in imagePred:
                         predDict.append({
-                            'image_id': int(imageID),
+                            'image_id': int(currImageID),
                             'category_id': int(pred[5]),
                             'bbox': [pred[0],pred[1],pred[2],pred[3]],
                             'score': float(pred[4])
@@ -123,7 +132,7 @@ class Inference:
                     imageID+=1
             ## Save predictions to COCO JSON file per model if desired
             if saveJSON:
-                jsonPath = f"{outDir}{modelInfo[0]}-pred.json"
+                jsonPath = f"{self.outDir}{modelInfo[0]}-pred.json"
                 with open(jsonPath, 'w') as f:
                     json.dump(predDict, f)
             ## Save predictions to batch dictionary
@@ -181,18 +190,13 @@ class Inference:
                 cv2.FONT_HERSHEY_SIMPLEX, 2, self.colours[pred[5]], 2)
         image = cv2.resize(image,(int(image.shape[1]/3),int(image.shape[0]/3)))
         cv2.imshow("VisualiseResults",image)
-        cv2.waitKey(100)
+        cv2.waitKey(10)
 
-# imgFiles = glob.glob("G:/OOF_Paper/Data/CookeTripletRGB_25mm/plus1p5waves/1000/*.png")
-imgFiles = glob.glob("G:/OOF_Paper/Data/CookeTripletRGB_25mm/original/10000/*.png")
-outDir = "G:/OOF_Paper/SDK/Inference/"
-labelDict = {
-    0: "Background",
-    1: "Person",
-    2: "Bicycle",
-    3: "Car"
-}
-inference = Inference(imgFiles,outDir,labelDict,0.001,30,imageSize = (640,338))
-predictions = inference.batch_run(modelList=None,saveJSON=True, visualise=True)
-print("Done")
+    def pullImageID(self,imagePath):
+        currImageID = -1
+        for image in self.anno['images']:
+            if image['file_name'].split('.')[0] == os.path.basename(imagePath).split('.')[0]:
+                currImageID = image['id']
+        return currImageID
+
 
