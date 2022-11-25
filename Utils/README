@@ -1,0 +1,8 @@
+
+
+Provide this script with imgFiles (Glob of dataset images) and an annotation file (In COCO JSON format) and will return metrics.
+
+Metrics are the full metrics for COCO and TIDE (Toolbox for Identifying Object Detection Errors).
+
+Just to note that your TIDE library will need to be updated as suggested below due to the repo no longer being updated.
+https://github.com/dbolya/tide/pull/21
