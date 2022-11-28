@@ -1,5 +1,6 @@
 from inference import Inference
 from benchmark import Benchmark
+from Utils.Utils import filterAnno
 import glob
 import plotly.express as px
 
@@ -9,11 +10,11 @@ import plotly.express as px
 ## Inference
 
 ## Glob of all images
-imgFiles = glob.glob("C:/path/to/images/*.png")
+imgFiles = glob.glob("G:/OOF_Paper/Data/CookeTripletRGB_25mm/original/10000/*.png")
 ## Path to annotation file that includes all globbed images
-annoPath = "C:/path/to/annotations/curr_anno.json"
+annoPath = "G:/OOF_Paper/Data/Annotations/fullAnno.json"
 ## Dir to save everything out to including predictions and final results
-outDir = "C:/InferenceOutput/"
+outDir = "G:/OOF_Paper/Results/InferenceOutput/"
 ## The label IDs and corresponding text labels that we want to predict, see COCO list if changes are needed
 labelDict = {
     0: "Background",
@@ -24,13 +25,15 @@ labelDict = {
 ## Infer based on above info
 print("Runnning Inference")
 inference = Inference(imgFiles,outDir,labelDict,0.01,30,imageSize = (640,338),annoPath=annoPath)
-predictions = inference.batch_run(modelList=None,saveJSON=True, visualise=False)
+predictions = inference.batch_run(modelList=None,saveJSON=True, visualise=True)
 
 
 ## Predictions
 
 ## Glob JSONs saved in benchmark
 predJSONs = glob.glob(outDir+"*.json")
+## Path to annotation file containing only the images that are glob
+annoPath = filterAnno(imgFiles,annoPath)
 ## Run the benchmark for each prediction JSON against the newest annoPath annotation JSON and output a results file
 print("Runnning Benchmark")
 benchmark = Benchmark()

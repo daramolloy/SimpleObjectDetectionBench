@@ -1,5 +1,4 @@
 import os.path
-
 import torch
 from torchvision.models import detection
 from torchvision.ops import nms

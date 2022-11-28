@@ -101,7 +101,10 @@ class Benchmark:
 
             for i in range(3):
                 for err in class_errors.keys():
-                    currData.append(class_errors[err][i + 1])
+                    try:
+                        currData.append(class_errors[err][i + 1])
+                    except:
+                        currData.append(-1)
 
             data.append(currData)
         dataframe = pd.DataFrame(data, columns=self.header)
