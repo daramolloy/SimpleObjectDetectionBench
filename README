@@ -1,8 +1,16 @@
+This software enables rapid generation of object detection research.
+
+- Provide this script with imgFiles (Glob of dataset images) and an annotation file (In COCO JSON format) and will return metrics.
+- Metrics are the full output of COCO and TIDE (Toolbox for Identifying Object Detection Errors) combined and per class.
 
 
-Provide this script with imgFiles (Glob of dataset images) and an annotation file (In COCO JSON format) and will return metrics.
-
-Metrics are the full metrics for COCO and TIDE (Toolbox for Identifying Object Detection Errors).
+Dependencies:
+PyCOCOTools == 2.0.4
+TIDE == https://github.com/dbolya/tide/pull/21
+pytorch == 1.11.0
+torchvision == 0.12.0
+tqdm == 4.64.0
 
 Just to note that your TIDE library will need to be updated as suggested below due to the repo no longer being updated.
 https://github.com/dbolya/tide/pull/21
+

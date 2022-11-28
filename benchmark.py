@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 class Benchmark:
     def __init__(self):
-        header = ["Model", "AP5095", "AP50", "AP75", "APsmall", "APmedium","APlarge","AR5095_1","AR5095_10","AR5095_100",
+        header = ["Name","Model", "AP5095", "AP50", "AP75", "APsmall", "APmedium","APlarge","AR5095_1","AR5095_10","AR5095_100",
                   "AR5095_100_small","AR5095_100_medium","AR5095_100_large"]
 
         for className in ["person", "bicycle", "car"]:
@@ -38,14 +38,14 @@ class Benchmark:
         self.header = header
 
 
-    def batch_run(self,predictions=None,annoPath=None,outDir=None):
+    def batch_run(self,predictions=None,annoPath=None,saveCSV=None,outDir=None,batchName=None):
         data = []
 
         cocoAnno = COCO(annoPath)
         tide_gt = datasets.COCO(annoPath)
 
         for pred in tqdm(predictions):
-            currData = [os.path.basename(pred)[:-5]]
+            currData = [batchName,os.path.basename(pred)[:-10]]
 
             ## Standard COCO Metrics
             coco_pred = cocoAnno.loadRes(pred)
@@ -96,8 +96,8 @@ class Benchmark:
             currData.append(main_errors['Dupe'])
             currData.append(main_errors['Bkg'])
             currData.append(main_errors['Miss'])
-            currData.append(-1)# currData.append(main_errors['FalsePos'])
-            currData.append(-1)# currData.append(main_errors['FalseNeg'])
+            currData.append(special_errors['FalsePos'])
+            currData.append(special_errors['FalseNeg'])
 
             for i in range(3):
                 for err in class_errors.keys():
@@ -106,5 +106,7 @@ class Benchmark:
             data.append(currData)
         dataframe = pd.DataFrame(data, columns=self.header)
 
+        ## Save out Dataframe
+        if saveCSV: dataframe.to_csv(outDir + "Results.csv")
         return dataframe
 

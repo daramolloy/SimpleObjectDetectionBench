@@ -63,7 +63,7 @@ class Inference:
                 ## Set NMS Params
                 model.conf = self.confFilter
                 model.iou = self.minIoU/100
-                model.classes = [0,1,2]
+                model.classes = [0,1,2] ## Hard-coded classes, needs fixing
                 ## Initialise COCO Image ID index
                 imageID = 0
                 for imgFile in self.imgFiles:
