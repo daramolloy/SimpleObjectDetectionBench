@@ -5,10 +5,11 @@ from tidecv import TIDE
 import tidecv.datasets as datasets
 import pandas as pd
 from tqdm import tqdm
+import csv
 
 class Benchmark:
     def __init__(self):
-        header = ["Name","Model", "AP5095", "AP50", "AP75", "APsmall", "APmedium","APlarge","AR5095_1","AR5095_10","AR5095_100",
+        header = ["Folder","Area","Model", "AP5095", "AP50", "AP75", "APsmall", "APmedium","APlarge","AR5095_1","AR5095_10","AR5095_100",
                   "AR5095_100_small","AR5095_100_medium","AR5095_100_large"]
 
         for className in ["person", "bicycle", "car"]:
@@ -45,7 +46,7 @@ class Benchmark:
         tide_gt = datasets.COCO(annoPath)
 
         for pred in tqdm(predictions):
-            currData = [batchName,os.path.basename(pred)[:-10]]
+            currData = [batchName.split('-')[0],batchName.split('-')[1],os.path.basename(pred)[:-10]]
 
             ## Standard COCO Metrics
             coco_pred = cocoAnno.loadRes(pred)
@@ -107,9 +108,15 @@ class Benchmark:
                         currData.append(-1)
 
             data.append(currData)
-        dataframe = pd.DataFrame(data, columns=self.header)
 
         ## Save out Dataframe
-        if saveCSV: dataframe.to_csv(outDir + "Results.csv")
-        return dataframe
+        if saveCSV:
+            if not os.path.exists(outDir + "Results.csv"):
+                with open(outDir + "Results.csv", "w", newline='') as f:
+                    write = csv.writer(f)
+                    write.writerows([self.header])
+            with open(outDir + "Results.csv", "a", newline='') as f:
+                write = csv.writer(f)
+                write.writerows(data)
+        return data
 

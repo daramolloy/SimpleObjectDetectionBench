@@ -1,3 +1,4 @@
+from Utils.Utils import filterPred
 import os.path
 import torch
 from torchvision.models import detection
@@ -8,8 +9,7 @@ import json
 from tqdm import tqdm
 
 class Inference:
-    def __init__(self,imgFiles,outDir,labelDict,confFilter,minIoU,imageSize=None,annoPath=None):
-        self.imgFiles = imgFiles
+    def __init__(self,outDir,labelDict,confFilter,minIoU,imageSize=None,annoPath=None):
         self.outDir = outDir
         self.labelFilter = labelDict.keys()
         self.labelDict = labelDict
@@ -39,7 +39,8 @@ class Inference:
         self.models.append(["ssd300_vgg16",detection.ssd300_vgg16(pretrained=True)])
         # self.models.append(["ssdlite320_mobilenet_v3_large",detection.ssdlite320_mobilenet_v3_large(pretrained=True)])
 
-    def batch_run(self, modelList=None, saveJSON=True,visualise=False):
+    def batch_run(self, imgFiles=None, modelList=None, saveJSON=True,visualise=False):
+        self.imgFiles = imgFiles
         # Initialise batch prediction dictionary
         batch_predDict = {}
         ## If models are filtered
@@ -129,6 +130,8 @@ class Inference:
                         })
                     ## Iterate image ID for each image
                     imageID+=1
+            ## Filtering predictions files within an ROI
+            predDict = filterPred(predDict)
             ## Save predictions to COCO JSON file per model if desired
             if saveJSON:
                 jsonPath = f"{self.outDir}{modelInfo[0]}-pred.json"

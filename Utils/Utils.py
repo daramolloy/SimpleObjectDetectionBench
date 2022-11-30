@@ -2,9 +2,18 @@ import json
 import glob
 import os.path
 import numpy as np
+import cv2
+import shutil
 
-def filterPred():
+def filterPred(predDict):
+    masked_off = np.array([[0, 2160], [0, 1950], [2130, 440], [2290, 440], [3800, 2160]])
     filteredPred = []
+    for pred in predDict:
+        centreX = pred['bbox'][0] + (pred['bbox'][2] / 2)
+        centreY = pred['bbox'][1] + (pred['bbox'][3] / 2)
+        inside_path = cv2.pointPolygonTest(masked_off, (int(centreX), int(centreY)), False)
+        if inside_path == 1:
+            filteredPred.append(pred)
 
     return filteredPred
 
@@ -35,8 +44,17 @@ def filterAnno(imgGlob,fullAnnoPath):
     filteredAnno['images'] = newImages
     filteredAnno['categories'] = allAnno['categories']
 
-    outPath = os.path.dirname(fullAnnoPath) + "/filtered_" + os.path.basename(fullAnnoPath)
+    outPath = os.path.dirname(fullAnnoPath) + "/filtered_annotations.json"
     with open(outPath,"w") as f:
         json.dump(filteredAnno, f)
 
     return outPath
+
+def sortTempOutputs(batchName,outDir,annoPath,predJSONs):
+    newOutPath = f"{outDir}{batchName}-Outputs/"
+    if not os.path.exists(newOutPath):
+        os.mkdir(newOutPath)
+    if "filtered" in annoPath:
+        shutil.move(annoPath,newOutPath)
+    for pred in predJSONs:
+        shutil.move(pred,newOutPath)

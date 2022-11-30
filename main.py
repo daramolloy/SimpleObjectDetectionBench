@@ -10,7 +10,7 @@ import plotly.express as px
 ## Inference
 
 ## Glob of all images
-imgFiles = glob.glob("G:/OOF_Paper/Data/CookeTripletRGB_25mm/original/10000/*.png")
+imgFiles = glob.glob("G:/OOF_Paper/Data/CookeTripletRGB_25mm/nominal/1000/*.png")
 ## Path to annotation file that includes all globbed images
 annoPath = "G:/OOF_Paper/Data/Annotations/fullAnno.json"
 ## Dir to save everything out to including predictions and final results
@@ -41,5 +41,5 @@ results = benchmark.batch_run(predictions=predJSONs,annoPath=annoPath,outDir = o
 
 
 ## Visualise Results
-fig = px.bar(results, x='Model', y='AP5095', title="AP5095")
+fig = px.bar(results, x='Model', y='AP5095', title="AP5095 - Nominal - 1000")
 fig.show()
