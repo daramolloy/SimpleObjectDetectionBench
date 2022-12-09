@@ -11,7 +11,7 @@ class Benchmark:
         header = ["Name","Model", "AP5095", "AP50", "AP75", "APsmall", "APmedium","APlarge","AR5095_1","AR5095_10","AR5095_100",
                   "AR5095_100_small","AR5095_100_medium","AR5095_100_large"]
 
-        for className in ["person", "bicycle", "car"]:
+        for className in ["background", "vehicles", "person", "bicycle", "traffic light", "traffic sign"]:
             header.append(f"AP5095_{className}")
             header.append(f"AP50_{className}")
             header.append(f"AP75_{className}")
@@ -27,7 +27,7 @@ class Benchmark:
         header.extend(["TIDE-AP5095", "AP50", "AP55", "AP60", "AP65", "AP70", "AP75", "AP80", "AP85", "AP90", "AP95",
                        "CLS", "LOC", "BOTH", "DUPE","BKG", "MISS", "FalsePos", "FalseNeg"])
 
-        for className in ["person", "bicycle", "car"]:
+        for className in ["background", "vehicles", "person", "bicycle", "traffic light", "traffic sign"]:
             header.append(f"CLS_{className}")
             header.append(f"LOC_{className}")
             header.append(f"BOTH_{className}")
@@ -40,8 +40,8 @@ class Benchmark:
 
     def batch_run(self,predictions=None,annoPath=None,saveCSV=None,outDir=None,batchName=None):
         data = []
-
         cocoAnno = COCO(annoPath)
+        print(cocoAnno)
         tide_gt = datasets.COCO(annoPath)
 
         for pred in tqdm(predictions):
@@ -57,7 +57,7 @@ class Benchmark:
                 currData.append(metric)
 
             ## Class COCO Metrics
-            for i in range(3):
+            for i in range(5):
                 eval = COCOeval(cocoAnno, coco_pred, 'bbox')
                 eval.params.catIds = [i + 1]
                 eval.evaluate()
@@ -74,8 +74,8 @@ class Benchmark:
 
             ## Pull Out Errors
             errors = tide.get_all_errors()
-            class_errors = tide.get_main_per_class_errors()
-            class_errors = list(class_errors.values())[0]
+            #class_errors = tide.get_main_per_class_errors()
+            #class_errors = list(class_errors.values())[0]
             main_errors = list(list(errors.values())[0].values())[0]
             special_errors = list(list(errors.values())[1].values())[0]
 
@@ -99,9 +99,9 @@ class Benchmark:
             currData.append(special_errors['FalsePos'])
             currData.append(special_errors['FalseNeg'])
 
-            for i in range(3):
-                for err in class_errors.keys():
-                    currData.append(class_errors[err][i + 1])
+            #for i in range(3):
+            #    for err in class_errors.keys():
+            #        currData.append(class_errors[err][i + 1])
 
             data.append(currData)
         dataframe = pd.DataFrame(data, columns=self.header)

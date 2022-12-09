@@ -7,17 +7,22 @@ import numpy as np
 import cv2
 import json
 from tqdm import tqdm
+from csv import reader
+from re import search, findall
 
 class Inference:
-    def __init__(self,imgFiles,outDir,labelDict,confFilter,minIoU,imageSize=None,annoPath=None):
+    def __init__(self,imgFiles,outDir,labelDict,confFilter,minIoU,imageSize=None,annoPath=None, model_list="models.csv"):
         self.imgFiles = imgFiles
         self.outDir = outDir
         self.labelFilter = labelDict.keys()
         self.labelDict = labelDict
         self.confFilter = confFilter
         self.minIoU = minIoU
+        self.model_list = model_list
+        if not os.path.exists(model_list):
+            self.set_default_models()
         self.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
-        self.colours = np.random.uniform(0, 255, size=(len(self.labelFilter), 3))
+        self.colours = np.random.uniform(0, 255, size=(15, 3))
         self.orig_imageSize = ()
         self.infer_imageSize = imageSize
         self.anno = None
@@ -27,18 +32,43 @@ class Inference:
 
         # Populate model list
         self.models = []
-        self.models.append(["yolov5n",torch.hub.load('ultralytics/yolov5', 'yolov5n', pretrained=True)])
-        self.models.append(["yolov5s",torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)])
-        self.models.append(["yolov5m",torch.hub.load('ultralytics/yolov5', 'yolov5m', pretrained=True)])
-        self.models.append(["yolov5l",torch.hub.load('ultralytics/yolov5', 'yolov5l', pretrained=True)])
-        self.models.append(["yolov5x",torch.hub.load('ultralytics/yolov5', 'yolov5x', pretrained=True)])
-        self.models.append(["fasterrcnn_mobilenet_v3_large_fpn",detection.fasterrcnn_mobilenet_v3_large_fpn(pretrained=True)])
-        # self.models.append(["fasterrcnn_mobilenet_v3_large_320_fpn",detection.fasterrcnn_mobilenet_v3_large_320_fpn(pretrained=True)])
-        self.models.append(["fasterrcnn_resnet50_fpn",detection.fasterrcnn_resnet50_fpn(pretrained=True)])
-        self.models.append(["retinanet_resnet50_fpn",detection.retinanet_resnet50_fpn(pretrained=True)])
-        self.models.append(["fcos_resnet50_fpn",detection.fcos_resnet50_fpn(pretrained=True)])
-        self.models.append(["ssd300_vgg16",detection.ssd300_vgg16(pretrained=True)])
-        # self.models.append(["ssdlite320_mobilenet_v3_large",detection.ssdlite320_mobilenet_v3_large(pretrained=True)])
+        # open file
+        with open(self.model_list, "r") as model_file:
+            # pass the file object to reader()
+            file_reader = reader(model_file)
+            #iterate over model list from file and append to models 
+            for model_name in file_reader:
+                if search("yolo", model_name[0]):
+                    try:
+                        version = int(findall("\d", model_name[0])[0])
+                        print(version)
+                        # if version is not specified, use the latest version
+                        if version in [3, 5]:
+                            self.models.append([model_name[0],torch.hub.load('ultralytics/yolov' + str(version), model_name[0], pretrained=model_name[1])])
+                        else:
+                            self.models.append([model_name[0],torch.hub.load('ultralytics/yolov5', model_name[0], pretrained=model_name[1])])
+                    except:
+                            self.models.append([model_name[0],torch.hub.load('ultralytics/yolov5', model_name[0], pretrained=model_name[1])])
+
+                else:
+                    self.models.append([model_name[0],getattr(detection, model_name[0])(pretrained=model_name[1])])
+    
+    '''
+        set_default_models() - sets the default models to be used in CSV if no model list is provided
+    '''
+    def set_default_models(self):
+        f = open(self.model_list, 'w')
+        f.write("yolov5n,True\n" +
+                "yolov5s,True\n" +
+                "yolov5m,True\n" +
+                "yolov5l,True\n" +
+                "yolov5x,True\n" +
+                "fasterrcnn_mobilenet_v3_large_fpn,True\n" +
+                "fasterrcnn_resnet50_fpn,True\n" +
+                "retinanet_resnet50_fpn,True\n" +
+                "fcos_resnet50_fpn,True\n" +
+                "ssd300_vgg16,True\n")
+        f.close()
 
     def batch_run(self, modelList=None, saveJSON=True,visualise=False):
         # Initialise batch prediction dictionary
@@ -63,7 +93,7 @@ class Inference:
                 ## Set NMS Params
                 model.conf = self.confFilter
                 model.iou = self.minIoU/100
-                model.classes = [0,1,2] ## Hard-coded classes, needs fixing
+                model.classes = [0,1,2,9,11] ## Hard-coded classes, needs fixing
                 ## Initialise COCO Image ID index
                 imageID = 0
                 for imgFile in self.imgFiles:
@@ -104,7 +134,7 @@ class Inference:
                 ## Initialise COCO Image ID index
                 imageID = 0
                 ## For each image
-                for imgFile in self.imgFiles:
+                for imgFile in tqdm(self.imgFiles):
                     ## Reading in Image
                     image = self.loadImage(imgFile, True)
                     image = image.to(self.device)
