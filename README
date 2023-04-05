@@ -14,4 +14,4 @@ tqdm == 4.64.0
 Just to note that your TIDE library will need to be updated as suggested below due to the repo no longer being updated.
 https://github.com/dbolya/tide/pull/21
 
-[![DOI](https://zenodo.org/badge/564515324.svg)](https://zenodo.org/badge/latestdoi/564515324)
+https://zenodo.org/badge/latestdoi/564515324
