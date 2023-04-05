@@ -14,4 +14,17 @@ tqdm == 4.64.0
 Just to note that your TIDE library will need to be updated as suggested below due to the repo no longer being updated.
 https://github.com/dbolya/tide/pull/21
 
+If used please cite as:
 https://zenodo.org/badge/latestdoi/564515324
+
+@software{daramolloy_2022_7371505,
+  author       = {daramolloy},
+  title        = {{daramolloy/SimpleObjectDetectionBench: 
+                   V1.0.0-alpha}},
+  month        = nov,
+  year         = 2022,
+  publisher    = {Zenodo},
+  version      = {V1.0.0},
+  doi          = {10.5281/zenodo.7371505},
+  url          = {https://doi.org/10.5281/zenodo.7371505}
+}
